@@ -3,7 +3,7 @@
 ## Overview
 
 This project is designed to Automate the product listing. The core functionality is implemented in `pipeline.py`.
-
+Gradio App is used for testing purpose
 ## Getting Started
 
 ### Prerequisites
