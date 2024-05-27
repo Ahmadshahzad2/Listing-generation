@@ -11,6 +11,7 @@ from langchain_core.pydantic_v1 import BaseModel, Field
 import os
 from openai import OpenAI
 from dotenv import load_dotenv
+import json
 
 load_dotenv()
 # Imgur and SERP API credentials
@@ -100,13 +101,53 @@ load_image_chain = TransformChain(
 parser = JsonOutputParser(pydantic_object=ImageInformation)
 def get_image_informations(image_path: str) -> dict:
     vision_prompt = """
-    Given the image, provide the following information:
-    - Title of the product in image
-    - A description of the product in image based on the text written in image
+    Given the image, the image is a commercial product. I want to get the information for listing this product on online store. provide the following information:
+    - The extracted text written on the product.
+    - Title of the product in image based on the extracted text
     """
     vision_chain = load_image_chain | image_model | parser
     return vision_chain.invoke({'image_path': f'{image_path}', 
                                 'prompt': vision_prompt})
+
+def parse_json_response(response):
+    # Remove the enclosing markers if present
+    if response.startswith("```json") and response.endswith("```"):
+        response = response[7:-3].strip()
+    
+    # Load the response as a JSON object
+    data = json.loads(response)
+    
+    # Find the key that contains the list of items
+    listings_key = None
+    for key, value in data.items():
+        if isinstance(value, list) and all(isinstance(item, dict) for item in value):
+            listings_key = key
+            break
+    
+    if not listings_key:
+        raise ValueError("No valid listings key found in the response")
+    
+    listings = data[listings_key]
+    
+    # Create a list to store the parsed dictionaries
+    parsed_data = []
+    
+    # Iterate through each item in the listings
+    for item in listings:
+        # Extract the title and features
+        title = item.get("Title", "")
+        features = item.get("Features", [])
+        
+        # Create a dictionary for each item
+        item_dict = {
+            "Title": title,
+            "Features": features
+        }
+        
+        # Append the dictionary to the list
+        parsed_data.append(item_dict)
+    
+    return parsed_data
 
 def main(image_path):
     # try:
@@ -129,9 +170,9 @@ def main(image_path):
 
 
         # Prompt to generate the JSON for the product listing
-        prompt = f"""
-        You are given the results from a SERP API and GPT Vision. The task is to generate a suitable title and a respective feature list for an e-commerce listing in JSON format based on the provided information. 
-
+        prompt = f'''
+        You have results from a SERP API and GPT Vision. The SERP API provides related product information, while GPT Vision gives exact extracted texts and a suitable title for the product image.
+        Your task is to generate titles and feature lists for an e-commerce listing in JSON format. Prioritize the accurate GPT Vision data, using SERP API data ONLY if it is relevent to GPT Vision result. 
         #### SERP Results:
         {serp_results}
 
@@ -141,16 +182,25 @@ def main(image_path):
         #### Example JSON format for one product:
         ```json
         {{
-            "Title": "Example Title",
-            "Features": [
-                "Feature 1",
-                "Feature 2",
-                "Feature 3"
+            "Listings": [
+                {{
+                    "Title": "Example Title",
+                    "Features": [
+                        "Feature 1",
+                        "Feature 2",
+                        "Feature 3",
+                        .,
+                        .,
+                        .,
+                        .,
+                        .,
+                        "feature N"
+                    ]
+                }}
             ]
         }}
-        Generate the JSON for the three product listing based on above results:
-                """
-
+        Generate a JSON for product listing (at Least THREE) based on the above results:
+        '''
 
         gpt_model = OpenAI(api_key=gpt_api_key)
         # Call the ChatGPT 3.5 model using the chat completion endpoint
@@ -162,9 +212,11 @@ def main(image_path):
         # Extract the text from the response
         generated_text = response.choices[0].message.content
 
-
+        print("Generated Text: ",generated_text)
+        parsed_data = parse_json_response(generated_text)
         # Print the ChatGPT response
-        print("Final output: ",generated_text)
+
+        return parsed_data
 
 if __name__ == "__main__":
     image_path = 'sampleImages/edited3.jpg'  # Replace with the path to your local image
