@@ -49,5 +49,5 @@ Ensure you have Python installed on your machine.
 To run the application, execute the following command:
 
 ```bash
-python pipeline.py
+python app.py
 ```
