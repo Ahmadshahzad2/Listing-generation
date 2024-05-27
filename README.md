@@ -39,9 +39,9 @@ Ensure you have Python installed on your machine.
    Create a `.env` file in the root directory of the project and add your API keys for ChatGPT, SERP, and Imgur. The file should look like this:
 
    ```env
-   gpt_api_key=your_chatgpt_api_key
-   serp_api_key=your_serp_api_key
-   imgur_client_id=your_imgur_client_id
+   gpt_api_key='your_chatgpt_api_key'
+   serp_api_key='your_serp_api_key'
+   imgur_client_id='your_imgur_client_id'
    ```
 
 ### Running the Application
